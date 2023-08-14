@@ -10,7 +10,7 @@ import (
 func testParser(t *testing.T, input string, expected string) {
 	d := caddyfile.NewTestDispenser(input)
 	d.Next()
-	out, err := parseArgs(d, nil)
+	out, err := parseArgs(d, "", nil)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -28,6 +28,35 @@ func TestScalarVal(t *testing.T) {
 	testParser(t, `"false"`, `"false"`)
 }
 
-func TestPathUpdate(t *testing.T) {
-	testParser(t, `key1 key2 key3 true`, `{"key1":{"key2":{"key3":true}}}`)
+func TestNestedObject(t *testing.T) {
+	testParser(
+		t,
+		`key1 key2 {
+			key3 12.3
+			key4 4.56
+		}`,
+		`{"key1":{"key2":{"key3":12.3,"key4":4.56}}}`,
+	)
+}
+
+func TestUpdateObject(t *testing.T) {
+	testParser(
+		t,
+		`key1 {
+			key2 key3 12.3
+			key2 key4 4.56
+		}`,
+		`{"key1":{"key2":{"key3":12.3,"key4":4.56}}}`,
+	)
+}
+
+func TestUpdateArray(t *testing.T) {
+	testParser(
+		t,
+		`key1 {
+			+key2 key3 12.3
+			+key2 key3 4.56
+		}`,
+		`{"key1":{"key2":[{"key3":12.3},{"key3":4.56}]}}`,
+	)
 }

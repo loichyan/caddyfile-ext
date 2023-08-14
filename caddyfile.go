@@ -28,7 +28,7 @@ func parseApp(d *caddyfile.Dispenser, _ any) (any, error) {
 	if !d.Next() {
 		return nil, d.Err("missing App configuration")
 	}
-	cfg, err := parseArgs(d, nil)
+	cfg, err := parseArgs(d, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -38,39 +38,82 @@ func parseApp(d *caddyfile.Dispenser, _ any) (any, error) {
 	}, nil
 }
 
-func parseArgs(d *caddyfile.Dispenser, prev any) (any, error) {
-	// TODO: parse object, array
-
+func parseArgs(d *caddyfile.Dispenser, key string, prev any) (any, error) {
 	curr := d.Val()
-	if d.Next() {
-		// create or update an existing object
-		// ..path key ..val
-		//        ^^^
-		var obj map[string]any = nil
-		if prev == nil {
-			// create a new object
+	switch {
+	case d.ValRaw() == "{":
+		// step into nested object
+		prev = map[string]any{}
+		for {
+			d.Next()
+			if d.ValRaw() == "}" {
+				break
+			}
+			updated, err := parseArgs(d, "", prev)
+			if err != nil {
+				return nil, err
+			}
+			prev = updated
+		}
+		if nextOnSameLine(d) {
+			return nil, d.Err("unexecpted value after an object")
+		} else {
+			return prev, nil
+		}
+	case nextOnSameLine(d):
+		// make sure previous value is an object
+		key = curr
+		obj, ok := prev.(map[string]any)
+		if ok {
+		} else if prev == nil {
 			obj = map[string]any{}
 		} else {
-			// update previous object
-			prev, ok := prev.(map[string]any)
-			if !ok {
-				return nil, d.Err("attempt to update a non-object")
+			return nil, d.Errf("'%s' is not an object", key)
+		}
+		var updated any
+		if key[0] == '+' {
+			// update an existing array
+			// ..path +key ..rest
+			//         ^^^
+			key = key[1:]
+			prev = obj[key]
+			// make sure existing value is an array
+			arr, ok := prev.([]any)
+			if ok {
+			} else if prev == nil {
+				arr = []any{}
+			} else {
+				return nil, d.Errf("'%s' is not an array", key)
 			}
-			obj = prev
+			val, err := parseArgs(d, key, nil)
+			if err != nil {
+				return nil, err
+			}
+			updated = append(arr, val)
+		} else {
+			// update an existing object
+			// ..path key ..rest
+			//        ^^^
+			val, err := parseArgs(d, key, obj[key])
+			if err != nil {
+				return nil, err
+			}
+			updated = val
 		}
-		val, err := parseArgs(d, obj[curr])
-		if err != nil {
-			return nil, err
-		}
-		obj[curr] = val
+		obj[key] = updated
 		return obj, nil
-	} else {
+	default:
 		// return the parsed value
 		// ..path val
 		//        ^^^
 		if prev != nil {
-			return nil, d.Err("duplicate value")
+			return nil, d.Errf("'%s' is duplicate", key)
 		}
 		return d.ScalarVal(), nil
 	}
+}
+
+func nextOnSameLine(d *caddyfile.Dispenser) bool {
+	line := d.Line()
+	return d.Next() && (d.Line() == line || !d.Prev())
 }
