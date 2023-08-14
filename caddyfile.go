@@ -1,27 +1,37 @@
 package caddyfile_ext
 
 import (
+	"strconv"
+
 	"github.com/caddyserver/caddy/v2/caddyconfig"
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/caddyserver/caddy/v2/caddyconfig/httpcaddyfile"
 )
 
 func init() {
-	httpcaddyfile.RegisterGlobalOption("app_ext", parseApp)
+	for i := 1; i <= 16; i++ {
+		httpcaddyfile.RegisterGlobalOption("app"+strconv.Itoa(i), parseApp)
+	}
 }
 
 // parseApp sets up a third-party app from the Caddyfile syntax. Syntax:
 //
-//	app_ext <name> {
+//	appN <name> {
 //		number 123
 //		boolean true
-//		string "..."
-//		array [ 1 2 3 ]
+//		string abc
 //		object {
+//			...
 //		}
+//		+array 1
 //	}
-func parseApp(d *caddyfile.Dispenser, _ any) (any, error) {
-	if !(d.Next() && d.NextArg()) {
+func parseApp(d *caddyfile.Dispenser, prev any) (any, error) {
+	d.Next()
+	id := d.Val()
+	if prev != nil {
+		return nil, d.Errf("duplicate App '%s'", id)
+	}
+	if !d.NextArg() {
 		return nil, d.Err("missing App name")
 	}
 	name := d.Val()
@@ -107,7 +117,7 @@ func parseArgs(d *caddyfile.Dispenser, key string, prev any) (any, error) {
 		// ..path val
 		//        ^^^
 		if prev != nil {
-			return nil, d.Errf("'%s' is duplicate", key)
+			return nil, d.Errf("duplicate value for '%s'", key)
 		}
 		return d.ScalarVal(), nil
 	}

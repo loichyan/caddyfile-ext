@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
+	"github.com/caddyserver/caddy/v2/caddyconfig/httpcaddyfile"
 )
 
 func testParser(t *testing.T, input string, expected string) {
@@ -58,5 +59,30 @@ func TestUpdateArray(t *testing.T) {
 			+key2 key3 4.56
 		}`,
 		`{"key1":{"key2":[{"key3":12.3},{"key3":4.56}]}}`,
+	)
+}
+
+func testCaddyfile(t *testing.T, input string, expected string) {
+	out, _, err := caddyfile.Adapter{
+		ServerType: httpcaddyfile.ServerType{},
+	}.Adapt([]byte(input), nil)
+	if err != nil {
+		t.Error(err)
+	} else {
+		if string(out) != expected {
+			t.Errorf("assertion failed:\nexpected: %s\n     got: %s\n", expected, out)
+		}
+	}
+}
+
+func TestAppExt(t *testing.T) {
+	testCaddyfile(
+		t,
+		`{
+			app1 app1 listen :1081
+			app2 app2 listen :1082
+			app3 app3 listen :1083
+		}`,
+		`{"apps":{"app1":{"listen":":1081"},"app2":{"listen":":1082"},"app3":{"listen":":1083"}}}`,
 	)
 }
