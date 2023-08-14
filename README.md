@@ -1,4 +1,4 @@
-# caddyfile-ext
+# 🍭 caddyfile-ext
 
 Extends your Caddyfile with additional JSON configuration.
 
