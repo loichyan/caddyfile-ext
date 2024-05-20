@@ -19,7 +19,7 @@ Extends your Caddyfile with additional JSON configuration.
 
 		# quoted value is always a string
 		# > "string": "false"
-		stirng "false"
+		string "false"
 
 		# multiple arguments are considered as a path to update a value
 		# > "a": {
@@ -56,20 +56,20 @@ Extends your Caddyfile with additional JSON configuration.
 			+match tls +sni xx.example.com
 			+handle {
 				handler proxy
-				+upstreams +dial :7441
+				+upstreams +dial :7001
 			}
 		}
 		+routes {
 			+match tls +sni yy.example.com
 			+handle {
 				handler proxy
-				+upstreams +dial :7442
+				+upstreams +dial :7002
 			}
 		}
 		+routes {
 			+handle {
 				handler proxy
-				+upstreams +dial :7443
+				+upstreams +dial :7003
 			}
 		}
 	}
@@ -82,7 +82,6 @@ Licensed under either of
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
   <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or
-  <http://opensource.org/licenses/MIT>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.

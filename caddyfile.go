@@ -66,7 +66,7 @@ func parseArgs(d *caddyfile.Dispenser, key string, prev any) (any, error) {
 			prev = updated
 		}
 		if nextOnSameLine(d) {
-			return nil, d.Err("unexecpted value after an object")
+			return nil, d.Err("unexpected value after an object")
 		} else {
 			return prev, nil
 		}
