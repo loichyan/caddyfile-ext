@@ -4,8 +4,10 @@ Extends your Caddyfile with additional JSON configuration.
 
 ## ✍️ Example
 
-```caddyfile
+```caddy
 {
+	# set up a third-party app, it supports up to 16 different apps,
+	# i.e. app1, app2, ... app16
 	app1 example {
 		# set value of a field
 		# > "field": "whatever"
