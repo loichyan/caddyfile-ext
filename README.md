@@ -37,10 +37,19 @@ Extends your Caddyfile with additional JSON configuration.
 			k2 v1
 		}
 
+		# key starts with '=' represents a JSON value
+		# > "json": {"key": "value"}
+		=json `{"key": "value"}`
+
 		# key starts with '+' represents an array
 		# > "arr": [1, 2]
 		+arr 1
 		+arr 2
+
+		# multiple '+' results in a nested array
+		# > "arr": [[1], [2]]
+		++arr 1
+		++arr 2
 
 		# '+' is available in a path to create a single-element array
 		# > "obj": {
@@ -84,6 +93,7 @@ Licensed under either of
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
   <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or
+  <http://opensource.org/licenses/MIT>)
 
 at your option.

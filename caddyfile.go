@@ -1,6 +1,7 @@
 package caddyfile_ext
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"github.com/caddyserver/caddy/v2/caddyconfig"
@@ -29,101 +30,164 @@ func parseApp(d *caddyfile.Dispenser, prev any) (any, error) {
 	d.Next()
 	id := d.Val()
 	if prev != nil {
-		return nil, d.Errf("duplicate App '%s'", id)
+		return nil, d.Errf("duplicate app `%s`", id)
 	}
-	if !d.NextArg() {
-		return nil, d.Err("missing App name")
+	p := parser{d}
+	if !p.NextArg() {
+		return nil, d.Err("app name is absent")
 	}
-	name := d.Val()
-	if !d.Next() {
-		return nil, d.Err("missing App configuration")
+	k, err := p.parseKey()
+	if err != nil {
+		return nil, err
 	}
-	cfg, err := parseArgs(d, "", nil)
+	cfg, err := p.parse(k, nil)
 	if err != nil {
 		return nil, err
 	}
 	return httpcaddyfile.App{
-		Name:  name,
+		Name:  k.val,
 		Value: caddyconfig.JSON(cfg, nil),
 	}, nil
 }
 
-func parseArgs(d *caddyfile.Dispenser, key string, prev any) (any, error) {
-	curr := d.Val()
+type parser struct {
+	*caddyfile.Dispenser
+}
+
+type key struct {
+	plus   int
+	equals bool
+	val    string
+}
+
+func (p *parser) parse(k key, prev any) (any, error) {
+	var curr any
+
 	switch {
-	case d.ValRaw() == "{":
-		// step into nested object
-		prev = map[string]any{}
-		for {
-			d.Next()
-			if d.ValRaw() == "}" {
-				break
-			}
-			updated, err := parseArgs(d, "", prev)
+	case k.equals:
+		// provide value in raw JSON
+		// ..path =key <json>
+		//             ^^^^^^
+
+		err := json.Unmarshal([]byte(p.Val()), &curr)
+		if err != nil {
+			return nil, err
+		}
+		if p.hasNextCurrentLine() {
+			return nil, p.Errf("unexpected arguments after JSON for `%s`", k.val)
+		}
+
+	case p.ValRaw() == "{":
+		// provide value within braces
+		// ..path key {...}
+		//            ^^^^^
+
+		obj := map[string]any{}
+		for p.Next() && p.ValRaw() != "}" {
+			err := p.parseEntry(obj)
 			if err != nil {
 				return nil, err
 			}
-			prev = updated
 		}
-		if nextOnSameLine(d) {
-			return nil, d.Err("unexpected value after an object")
-		} else {
-			return prev, nil
+		if p.hasNextCurrentLine() {
+			return nil, p.Errf("unexpected arguments after braces for `%s`", k.val)
 		}
-	case nextOnSameLine(d):
-		// make sure previous value is an object
-		key = curr
-		obj, ok := prev.(map[string]any)
-		if ok {
-		} else if prev == nil {
-			obj = map[string]any{}
-		} else {
-			return nil, d.Errf("'%s' is not an object", key)
-		}
-		var updated any
-		if key[0] == '+' {
-			// update an existing array
-			// ..path +key ..rest
-			//         ^^^
-			key = key[1:]
-			prev = obj[key]
-			// make sure existing value is an array
-			arr, ok := prev.([]any)
-			if ok {
-			} else if prev == nil {
-				arr = []any{}
-			} else {
-				return nil, d.Errf("'%s' is not an array", key)
+		curr = obj
+
+	case p.hasNextCurrentLine():
+		// update object with the specified path
+		// ..path key key2 ..rest
+		//            ^^^^
+
+		if k.plus == 0 {
+			obj, ok := prev.(map[string]any)
+			if prev == nil {
+				obj = map[string]any{}
+			} else if !ok {
+				return nil, p.Errf("value for `%s` is not an object", k.val)
 			}
-			val, err := parseArgs(d, key, nil)
+			return obj, p.parseEntry(obj)
+		} else {
+			obj := map[string]any{}
+			k2, err := p.parseKey()
 			if err != nil {
 				return nil, err
 			}
-			updated = append(arr, val)
-		} else {
-			// update an existing object
-			// ..path key ..rest
-			//        ^^^
-			val, err := parseArgs(d, key, obj[key])
+
+			obj[k2.val], err = p.parse(k2, nil)
 			if err != nil {
 				return nil, err
 			}
-			updated = val
+			curr = obj
 		}
-		obj[key] = updated
-		return obj, nil
+
 	default:
-		// return the parsed value
-		// ..path val
-		//        ^^^
-		if prev != nil {
-			return nil, d.Errf("duplicate value for '%s'", key)
+		// provide a scalar value
+		// ..path key val
+		//            ^^^
+		curr = p.ScalarVal()
+	}
+
+	if k.plus > 0 {
+		// make sure target value is an array
+		arr, ok := prev.([]any)
+		if prev == nil {
+			arr = []any{}
+		} else if !ok {
+			return nil, p.Errf("value for '%s' is not an array", k.val)
 		}
-		return d.ScalarVal(), nil
+
+		// handle nested array
+		for i := k.plus; i > 1; i-- {
+			curr = []any{curr}
+		}
+		return append(arr, curr), nil
+	} else if prev != nil {
+		return nil, p.Errf("duplicate value for key `%s`", k.val)
+	} else {
+		return curr, nil
 	}
 }
 
-func nextOnSameLine(d *caddyfile.Dispenser) bool {
-	line := d.Line()
-	return d.Next() && (d.Line() == line || !d.Prev())
+func (p *parser) parseEntry(obj map[string]any) error {
+	k, err := p.parseKey()
+	if err != nil {
+		return err
+	}
+	val, err := p.parse(k, obj[k.val])
+	if err != nil {
+		return err
+	}
+	obj[k.val] = val
+	return nil
+}
+
+func (p *parser) parseKey() (key, error) {
+	k := key{}
+	tok := p.Val()
+	for i := 0; ; i++ {
+		if tok[i] == '+' {
+			k.plus += 1
+		} else if tok[i] == '=' {
+			k.equals = tok[i] == '='
+			k.val = tok[i+1:]
+			break
+		} else {
+			k.val = tok[i:]
+			break
+		}
+	}
+	if !p.nextCurrentLine() {
+		return k, p.Errf("value for `%s` is missing", k.val)
+	}
+	return k, nil
+}
+
+func (p *parser) hasNextCurrentLine() bool {
+	return p.nextCurrentLine() && p.Prev()
+}
+
+func (p *parser) nextCurrentLine() bool {
+	line := p.Line()
+	return p.Next() && (p.Line() == line || !p.Prev())
 }

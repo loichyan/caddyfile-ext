@@ -11,7 +11,8 @@ import (
 func testParser(t *testing.T, input string, expected string) {
 	d := caddyfile.NewTestDispenser(input)
 	d.Next()
-	out, err := parseArgs(d, "", nil)
+	p := parser{d}
+	out, err := p.parse(key{}, nil)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -40,6 +41,17 @@ func TestNestedObject(t *testing.T) {
 	)
 }
 
+func TestNestedArray(t *testing.T) {
+	testParser(
+		t,
+		`key1 {
+			++key2 12.3
+			++key3 4.56
+		}`,
+		`{"key1":{"key2":[[12.3]],"key3":[[4.56]]}}`,
+	)
+}
+
 func TestUpdateObject(t *testing.T) {
 	testParser(
 		t,
@@ -59,6 +71,30 @@ func TestUpdateArray(t *testing.T) {
 			+key2 key3 4.56
 		}`,
 		`{"key1":{"key2":[{"key3":12.3},{"key3":4.56}]}}`,
+	)
+}
+
+func TestUpdateNestedArray(t *testing.T) {
+	testParser(
+		t,
+		`key1 {
+			++key2 key3 12.3
+			++key2 key3 4.56
+		}`,
+		`{"key1":{"key2":[[{"key3":12.3}],[{"key3":4.56}]]}}`,
+	)
+}
+
+func TestRawJSON(t *testing.T) {
+	testParser(
+		t,
+		`=key1 <<JSON
+		{
+			"key2": 12.3,
+			"key3": 45.6
+		}
+		JSON`,
+		`{"key1":{"key2":12.3,"key3":45.6}}`,
 	)
 }
 
