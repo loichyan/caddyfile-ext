@@ -13,6 +13,10 @@ Extends your Caddyfile with additional JSON configuration.
 		# > "field": "whatever"
 		field whatever
 
+		# leading colon will be ignored
+		# > "field": "whatever"
+		:field whatever
+
 		# value is first converted to a scalar type
 		# > "boolean": true
 		# > "number": 123.45

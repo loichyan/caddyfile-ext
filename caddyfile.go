@@ -186,7 +186,7 @@ func (p *parser) parseKey() (key, error) {
 	for i := 0; ; i++ {
 		if tok[i] == '+' {
 			k.plus += 1
-		} else if tok[i] == '=' {
+		} else if tok[i] == '=' || tok[i] == ':' {
 			k.equals = tok[i] == '='
 			k.val = tok[i+1:]
 			break

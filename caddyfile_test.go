@@ -52,6 +52,14 @@ func TestNestedArray(t *testing.T) {
 	)
 }
 
+func TestFieldWithColon(t *testing.T) {
+	testParser(
+		t,
+		`:key1 true`,
+		`{"key1":true}`,
+	)
+}
+
 func TestBracketedArray(t *testing.T) {
 	testParser(
 		t,
