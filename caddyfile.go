@@ -78,7 +78,7 @@ func (p *parser) parse(k key, prev any) (any, error) {
 		}
 
 	case p.ValRaw() == "{":
-		// provide value within braces
+		// provide object value within braces
 		// ..path key {...}
 		//            ^^^^^
 
@@ -89,10 +89,28 @@ func (p *parser) parse(k key, prev any) (any, error) {
 				return nil, err
 			}
 		}
-		if p.hasNextCurrentLine() {
+		if p.ValRaw() != "}" {
+			return nil, p.Errf("unclosed brace for `%s`", k.val)
+		} else if p.hasNextCurrentLine() {
 			return nil, p.Errf("unexpected arguments after braces for `%s`", k.val)
 		}
 		curr = obj
+
+	case p.ValRaw() == "[":
+		// provide array value within brackets
+		// ..path key [...]
+		//            ^^^^^
+
+		arr := []any{}
+		for p.nextCurrentLine() && p.ValRaw() != "]" {
+			arr = append(arr, p.ScalarVal())
+		}
+		if p.ValRaw() != "]" {
+			return nil, p.Errf("unclosed bracket for `%s`", k.val)
+		} else if p.hasNextCurrentLine() {
+			return nil, p.Errf("unexpected arguments after braces for `%s`", k.val)
+		}
+		curr = arr
 
 	case p.hasNextCurrentLine():
 		// update object with the specified path

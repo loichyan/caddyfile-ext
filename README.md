@@ -46,6 +46,10 @@ Extends your Caddyfile with additional JSON configuration.
 		+arr 1
 		+arr 2
 
+        # array with brackets is also supported
+		# > "arr": [1, 2]
+        arr [ 1 2 ]
+
 		# multiple '+' results in a nested array
 		# > "arr": [[1], [2]]
 		++arr 1

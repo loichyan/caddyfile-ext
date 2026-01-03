@@ -52,6 +52,14 @@ func TestNestedArray(t *testing.T) {
 	)
 }
 
+func TestBracketedArray(t *testing.T) {
+	testParser(
+		t,
+		`key1 [ 1.23 4.56 ]`,
+		`{"key1":[1.23,4.56]}`,
+	)
+}
+
 func TestUpdateObject(t *testing.T) {
 	testParser(
 		t,
